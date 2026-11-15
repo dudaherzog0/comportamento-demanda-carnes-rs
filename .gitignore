@@ -1,0 +1,9 @@
+# Variáveis de ambiente locais
+.env
+
+# Arquivos temporários do R e RStudio
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj.user
