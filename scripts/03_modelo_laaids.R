@@ -36,7 +36,6 @@ dados <- base_sem_suino %>%
   na.omit()
 
 # 2. ESPECIFICAR A EQUAÇÃO INDEPENDENTE
-
 eq_bov <- w_bov ~
   lp_bov_fra +
   ln_x_real
@@ -45,9 +44,7 @@ sistema_aids <- list(
   bovina = eq_bov
 )
 
-
 # 3. ESTIMAR O MODELO
-
 modelo_aids <- systemfit(
   sistema_aids,
   method = "SUR",
@@ -96,21 +93,15 @@ summary(dados[, c(
 # ============================================================
 
 summary(modelo_aids)
-
 coef(modelo_aids)
-
 summary(dados$w_bov + dados$w_fra)
-
 summary(
   fitted(modelo_aids$eq[[1]]) +
     dados$w_fra_estimado
 )
 
-
-## correção significancia
-
 # ============================================================
-# 10. ESTIMAR OS PARAMETROS ALFA, BETA E GAMA
+# 10. ESTIMAR OS PARÂMETROS ALFA, BETA E GAMA
 # ============================================================
 
 # Extrair coeficientes
@@ -153,13 +144,10 @@ parametros <- data.frame(
 )
 
 print(parametros)
-
-# Matriz gama
 print(gama)
 
-
 # ============================================================
-# 11. ELASTICIDADES-GASTO DA DEMANDA
+# 11. ELASTICIDADES-GASTO DA DEMANDA (EQ. 18)
 # ============================================================
 
 # Participações orçamentárias médias
@@ -170,48 +158,108 @@ w_fra_med <- mean(dados$w_fra)
 eta_bov <- 1 + beta_bov / w_bov_med
 eta_fra <- 1 + beta_fra / w_fra_med
 
-
 # ============================================================
-# 12. ELASTICIDADES-PREÇO MARSHALLIANAS
+# 12. ELASTICIDADES-PREÇO MARSHALLIANAS (EQ. 19)
 # ============================================================
 
 # Carne bovina
-e_bov_bov <- -1 +
-  (gamma - beta_bov * w_bov_med) / w_bov_med
-
-e_bov_fra <- 
-  (-gamma - beta_bov * w_fra_med) / w_bov_med
+e_bov_bov <- -1 + (gamma / w_bov_med) - beta_bov
+e_bov_fra <- (-gamma / w_bov_med) - beta_bov * (w_fra_med / w_bov_med)
 
 # Carne de frango
-e_fra_bov <-
-  (-gamma - beta_fra * w_bov_med) / w_fra_med
-
-e_fra_fra <- -1 +
-  (gamma - beta_fra * w_fra_med) / w_fra_med
-
+e_fra_bov <- (-gamma / w_fra_med) - beta_fra * (w_bov_med / w_fra_med)
+e_fra_fra <- -1 + (gamma / w_fra_med) - beta_fra
 
 # ============================================================
-# 13. TABELA FINAL DE ELASTICIDADES
+# 13. ELASTICIDADES-PREÇO HICKSIANAS / COMPENSADAS (EQ. 20)
 # ============================================================
+
+# Fórmula direta: h_ij = -delta_ij + (gamma_ij / w_i) + w_j
+h_bov_bov <- -1 + (gamma / w_bov_med) + w_bov_med
+h_bov_fra <- (-gamma / w_bov_med) + w_fra_med   # Cruzada: Bovina em relação ao preço do Frango
+
+h_fra_bov <- (-gamma / w_fra_med) + w_bov_med   # Cruzada: Frango em relação ao preço da Bovina
+h_fra_fra <- -1 + (gamma / w_fra_med) + w_fra_med
+
+# Conferência pela Equação de Slutsky: h_ij = e_ij + E_i * w_j
+stopifnot(
+  all.equal(h_bov_fra, e_bov_fra + eta_bov * w_fra_med),
+  all.equal(h_fra_bov, e_fra_bov + eta_fra * w_bov_med)
+)
+
+# ============================================================
+# 14. ERROS-PADRÃO, ESTATÍSTICA t E P-VALOR DAS ELASTICIDADES
+# ============================================================
+
+V <- vcov(modelo_aids)
+var_gamma <- V["bovina_lp_bov_fra", "bovina_lp_bov_fra"]
+var_beta  <- V["bovina_ln_x_real", "bovina_ln_x_real"]
+cov_gb    <- V["bovina_lp_bov_fra", "bovina_ln_x_real"]
+gl        <- df.residual(modelo_aids$eq[[1]])
+
+# Erros-padrão das Marshallianas (combinação linear de gamma e beta)
+se_e_bov_bov <- sqrt((1 / w_bov_med)^2 * var_gamma + (-1)^2 * var_beta + 2 * (1 / w_bov_med) * (-1) * cov_gb)
+se_e_bov_fra <- sqrt((-1 / w_bov_med)^2 * var_gamma + (-w_fra_med / w_bov_med)^2 * var_beta + 2 * (-1 / w_bov_med) * (-w_fra_med / w_bov_med) * cov_gb)
+se_e_fra_bov <- sqrt((-1 / w_fra_med)^2 * var_gamma + (w_bov_med / w_fra_med)^2 * var_beta + 2 * (-1 / w_fra_med) * (w_bov_med / w_fra_med) * cov_gb)
+se_e_fra_fra <- sqrt((1 / w_fra_med)^2 * var_gamma + (1)^2 * var_beta + 2 * (1 / w_fra_med) * (1) * cov_gb)
+
+# Erros-padrão das Hicksianas (dependem apenas de gamma)
+se_h_bov_bov <- sqrt(var_gamma) / w_bov_med
+se_h_bov_fra <- sqrt(var_gamma) / w_bov_med
+se_h_fra_bov <- sqrt(var_gamma) / w_fra_med
+se_h_fra_fra <- sqrt(var_gamma) / w_fra_med
+
+# Erros-padrão das Elasticidades-Gasto (dependem apenas de beta)
+se_eta_bov <- sqrt(var_beta) / w_bov_med
+se_eta_fra <- sqrt(var_beta) / w_fra_med
+
+# ============================================================
+# 15. TABELA FINAL COMPLETA DE ELASTICIDADES
+# ============================================================
+
+estimativas <- c(
+  e_bov_bov, e_bov_fra, e_fra_bov, e_fra_fra,
+  h_bov_bov, h_bov_fra, h_fra_bov, h_fra_fra,
+  eta_bov, eta_fra
+)
+
+erros_padrao <- c(
+  se_e_bov_bov, se_e_bov_fra, se_e_fra_bov, se_e_fra_fra,
+  se_h_bov_bov, se_h_bov_fra, se_h_fra_bov, se_h_fra_fra,
+  se_eta_bov, se_eta_fra
+)
+
+# Nota: para Elasticidade-Gasto, a hipótese nula econômica relevante é H0: E_i = 1
+t_stat <- c(
+  estimativas[1:8] / erros_padrao[1:8],
+  (eta_bov - 1) / se_eta_bov,
+  (eta_fra - 1) / se_eta_fra
+)
+
+p_valor <- 2 * pt(-abs(t_stat), df = gl)
 
 elasticidades <- data.frame(
+  Tipo = c(
+    rep("Marshalliana", 4),
+    rep("Hicksiana", 4),
+    rep("Dispêndio (H0: E=1)", 2)
+  ),
   Elasticidade = c(
     "Bovina - preço próprio",
-    "Bovina - preço do frango",
-    "Frango - preço da bovina",
+    "Bovina - preço do frango (cruzada)",
+    "Frango - preço da bovina (cruzada)",
+    "Frango - preço próprio",
+    "Bovina - preço próprio",
+    "Bovina - preço do frango (cruzada)",
+    "Frango - preço da bovina (cruzada)",
     "Frango - preço próprio",
     "Bovina - gasto",
     "Frango - gasto"
   ),
-  
-  Estimativa = c(
-    e_bov_bov,
-    e_bov_fra,
-    e_fra_bov,
-    e_fra_fra,
-    eta_bov,
-    eta_fra
-  )
+  Estimativa  = round(estimativas, 4),
+  Erro_Padrao = round(erros_padrao, 4),
+  Estat_t     = round(t_stat, 4),
+  P_Valor     = round(p_valor, 4)
 )
 
 print(elasticidades)
