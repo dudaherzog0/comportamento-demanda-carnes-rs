@@ -38,11 +38,13 @@ Abaixo estão listados todos os pacotes do R utilizados no projeto e a função 
 | **`tseries`** | Aplicação do teste de *Phillips-Perron* (`pp.test`) nas séries em nível e nos resíduos da regressão de longo prazo (etapa de cointegração de Engle-Granger). |
 | **`systemfit`** | Estimação econométrica do sistema de equações de demanda **LA/AIDS** pelo método **SUR** (*Seemingly Unrelated Regressions*). |
 | **`writexl`** | Exportação das tabelas finais de parâmetros, matriz Gama, elasticidades e testes de significância para um arquivo Excel (`.xlsx`) estruturado em abas. |
+| **`lmtest`** | Diagnósticos dos resíduos: autocorrelação (Breusch-Godfrey, `bgtest`), heterocedasticidade (Breusch-Pagan, `bptest`) e coeficientes com erro-padrão robusto (`coeftest`). |
+| **`sandwich`** | Matriz de covariância robusta de Newey-West (`NeweyWest`), usada quando há autocorrelação ou heterocedasticidade. |
 
 Para instalar todas as bibliotecas de uma única vez, execute no Console do R:
 
 ```r
-install.packages(c("readxl", "dplyr", "urca", "tseries", "systemfit", "writexl"))
+install.packages(c("readxl", "dplyr", "urca", "tseries", "systemfit", "writexl", "lmtest", "sandwich"))
 ```
 
 ---
